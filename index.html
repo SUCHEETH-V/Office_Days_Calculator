@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Office Days Calculator</title>
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--text:#1c2333;--muted:#6b7488;--accent:#4f46e5;--accent2:#06b6d4;--line:#e3e7f0;--err:#d93025;--dot:#d9deea;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1320;--card:#181d2e;--text:#eef1f8;--muted:#9aa3b8;--accent:#8b85ff;--accent2:#22d3ee;--line:#2a3148;--err:#ff7b72;--dot:#2c3450;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1320;--card:#181d2e;--text:#eef1f8;--muted:#9aa3b8;--accent:#8b85ff;--accent2:#22d3ee;--line:#2a3148;--err:#ff7b72;--dot:#2c3450;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;min-height:100vh;display:flex;justify-content:center;padding:24px 16px}
+.card{width:100%;max-width:440px;background:var(--card);border-radius:24px;padding:28px 24px;box-shadow:0 10px 40px rgba(60,70,120,.12);align-self:flex-start}
+h1{font-size:1.4rem;margin:0 0 4px}
+.sub{color:var(--muted);font-size:.9rem;margin:0 0 22px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+label{display:block;font-size:.8rem;font-weight:600;color:var(--muted);margin-bottom:6px}
+input{width:100%;font-size:1.4rem;font-weight:700;padding:12px 14px;border:2px solid var(--line);border-radius:14px;background:transparent;color:var(--text);outline:none;transition:border-color .2s}
+input:focus{border-color:var(--accent)}
+input.bad{border-color:var(--err)}
+.err{min-height:1.2em;color:var(--err);font-size:.8rem;margin:10px 0 0}
+.result{margin-top:18px;text-align:center}
+.ring{position:relative;width:190px;height:190px;margin:0 auto}
+.ring svg{transform:rotate(-90deg)}
+.ring .num{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.num b{font-size:3.4rem;line-height:1;background:linear-gradient(135deg,var(--accent),var(--accent2));-webkit-background-clip:text;background-clip:text;color:transparent}
+.num span{font-size:.8rem;color:var(--muted);margin-top:4px}
+.meta{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin:14px 0 4px}
+.chip{font-size:.8rem;padding:6px 12px;border-radius:99px;background:var(--bg);color:var(--muted)}
+.chip b{color:var(--text)}
+.dots{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-top:16px}
+.dot{width:16px;height:16px;border-radius:5px;background:var(--dot);transition:background .25s}
+.dot.on{background:linear-gradient(135deg,var(--accent),var(--accent2))}
+.legend{font-size:.75rem;color:var(--muted);margin-top:10px}
+.hint{font-size:.78rem;color:var(--muted);text-align:center;margin-top:18px}
+.foot{margin-top:22px;padding-top:14px;border-top:1px solid var(--line);text-align:center;font-size:.75rem;color:var(--muted);line-height:1.6}
+.foot b{color:var(--text)}
+</style>
+</head>
+<body>
+<main class="card">
+  <h1>🏢 Office Days Calculator</h1>
+  <p class="sub">Work out how many days you need to be in the office (60% rule).</p>
+  <div class="row">
+    <div><label for="w">Working days in month</label><input id="w" type="number" inputmode="numeric" min="0" max="31" step="1" placeholder="e.g. 22"></div>
+    <div><label for="l">Leaves taken</label><input id="l" type="number" inputmode="numeric" min="0" max="31" step="1" placeholder="e.g. 2"></div>
+  </div>
+  <p class="err" id="err" role="alert"></p>
+  <section class="result">
+    <div class="ring">
+      <svg width="190" height="190" viewBox="0 0 190 190" aria-hidden="true">
+        <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6366f1"/><stop offset="1" stop-color="#06b6d4"/></linearGradient></defs>
+        <circle cx="95" cy="95" r="80" fill="none" stroke="var(--dot)" stroke-width="14"/>
+        <circle id="arc" cx="95" cy="95" r="80" fill="none" stroke="url(#g)" stroke-width="14" stroke-linecap="round" stroke-dasharray="502.65" stroke-dashoffset="502.65" style="transition:stroke-dashoffset .5s ease"/>
+      </svg>
+      <div class="num"><b id="out">–</b><span id="lbl">office days needed</span></div>
+    </div>
+    <div class="meta" id="meta"></div>
+    <div class="dots" id="dots"></div>
+    <div class="legend" id="legend"></div>
+  </section>
+  <p class="hint">Rounding: below .5 rounds down (10.4 → 10), .5 and above rounds up (10.5 → 11). The requirement never exceeds the 12-day threshold.</p>
+  <footer class="foot">Made by <b>Sucheeth</b> ✨<br>For internal use only</footer>
+</main>
+<script>
+(function(){
+  var w=document.getElementById('w'),l=document.getElementById('l'),err=document.getElementById('err'),
+      out=document.getElementById('out'),arc=document.getElementById('arc'),meta=document.getElementById('meta'),
+      dots=document.getElementById('dots'),legend=document.getElementById('legend'),lbl=document.getElementById('lbl');
+  var C=502.65;
+  function parse(el){
+    var v=el.value.trim();
+    if(v==='')return {empty:true};
+    if(!/^\d+$/.test(v))return {bad:'Enter a whole number (0–31).'};
+    var n=parseInt(v,10);
+    if(n>31)return {bad:'Value can’t be more than 31.'};
+    return {n:n};
+  }
+  function reset(msg){
+    out.textContent='–';arc.style.strokeDashoffset=C;meta.innerHTML='';dots.innerHTML='';legend.textContent='';
+    err.textContent=msg||'';
+  }
+  function calc(){
+    var a=parse(w),b=parse(l);
+    w.classList.toggle('bad',!!a.bad);l.classList.toggle('bad',!!b.bad);
+    if(a.bad||b.bad){
+      if(a.bad&&a.bad.indexOf('31')>-1&&a.bad.indexOf('more')>-1)w.value=w.value;
+      return reset((a.bad?'Working days: ':'Leaves: ')+(a.bad||b.bad));
+    }
+    if(a.empty||b.empty)return reset('');
+    if(b.n>a.n){l.classList.add('bad');return reset('Leaves can’t be more than working days.');}
+    var eff=a.n-b.n;
+    // integer math avoids floating-point errors: 60% of eff, rounded half up
+    var THRESHOLD=12;
+    var rounded=Math.floor((6*eff+5)/10);
+    var req=Math.min(rounded,THRESHOLD);
+    var exact=(6*eff)/10;
+    err.textContent='';
+    out.textContent=req;
+    lbl.textContent=req===1?'office day needed':'office days needed';
+    arc.style.strokeDashoffset=eff?C*(1-req/eff):C;
+    meta.innerHTML='<span class="chip">Days to work: <b>'+eff+'</b></span><span class="chip">60% = <b>'+exact.toFixed(1)+'</b> (threshold is '+THRESHOLD+' days)</span>';
+    var h='';for(var i=0;i<eff;i++)h+='<div class="dot'+(i<req?' on':'')+'"></div>';
+    dots.innerHTML=h;
+    legend.textContent=eff?'Coloured blocks = office days, grey = remote days':'';
+  }
+  function clamp(e){
+    var el=e.target;
+    if(el.value.length>2)el.value=el.value.slice(0,2);
+    if(el.value.indexOf('-')>-1||el.value.indexOf('.')>-1||el.value.indexOf('e')>-1)el.value=el.value.replace(/[^\d]/g,'');
+    calc();
+  }
+  w.addEventListener('input',clamp);l.addEventListener('input',clamp);
+})();
+</script>
+</body>
+</html>
